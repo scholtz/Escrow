@@ -1,9 +1,17 @@
 import { Config } from '@algorandfoundation/algokit-utils'
 import { registerDebugEventHandlers } from '@algorandfoundation/algokit-utils-debug'
 import { algorandFixture } from '@algorandfoundation/algokit-utils/testing'
-import { Address } from 'algosdk'
+import { AlgoAmount } from '@algorandfoundation/algokit-utils/types/amount'
+import { AlgorandTestAutomationContext } from '@algorandfoundation/algokit-utils/types/testing'
+import algosdk, {
+  Account,
+  makeAssetCreateTxnWithSuggestedParamsFromObject,
+  makeAssetTransferTxnWithSuggestedParamsFromObject,
+  makePaymentTxnWithSuggestedParamsFromObject,
+} from 'algosdk'
+import { getBytes, keccak256 } from 'ethers'
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
-import { EscrowFactory } from '../artifacts/escrow/EscrowClient'
+import { EscrowClient, EscrowFactory } from '../artifacts/escrow/EscrowClient'
 
 describe('Escrow contract', () => {
   const localnet = algorandFixture()
@@ -15,39 +23,462 @@ describe('Escrow contract', () => {
     registerDebugEventHandlers()
   })
   beforeEach(localnet.newScope)
-
-  const deploy = async (account: Address) => {
+  const getBoxNameE = (passwordHash: Uint8Array) => {
+    return new Uint8Array(Buffer.from([...Buffer.from('e', 'ascii'), ...passwordHash]))
+  }
+  const getBoxNameD = (tokenId: bigint) => {
+    return new Uint8Array(Buffer.from([...Buffer.from('d', 'ascii'), ...algosdk.encodeUint64(tokenId)]))
+  }
+  const waitUntilTime = async (time: bigint, client: EscrowClient, context: AlgorandTestAutomationContext) => {
+    while ((await client.latestTimestamp({ args: {} })) < time) {
+      // Your code here
+      await context.generateAccount({ initialFunds: AlgoAmount.Algo(1) })
+    }
+  }
+  const deploy = async (account: Account) => {
     const factory = localnet.algorand.client.getTypedAppFactory(EscrowFactory, {
-      defaultSender: account,
+      defaultSender: account.addr,
     })
 
     const { appClient } = await factory.deploy({
       onUpdate: 'append',
       onSchemaBreak: 'append',
     })
+
+    // fund MBR for smart contract
+    await localnet.context.algod
+      .sendRawTransaction(
+        makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 5_000_000,
+          receiver: appClient.appAddress,
+          sender: account.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }).signTxn(account.sk),
+      )
+      .do()
+    console.log(
+      'deployer, appid, app address',
+      account.addr.toString(),
+      appClient.appId,
+      appClient.appAddress.toString(),
+    )
     return { client: appClient }
   }
 
-  test('says hello', async () => {
+  test('deploy contract', async () => {
     const { testAccount } = localnet.context
     const { client } = await deploy(testAccount)
-
-    const result = await client.send.hello({ args: { name: 'World' } })
-
-    expect(result.return).toBe('Hello, World')
+    expect(client.appId).toBeGreaterThan(0)
   })
 
-  test('simulate says hello with correct budget consumed', async () => {
+  test('should allow sender to create escrow', async () => {
+    // call fund with correct hashlock and timelock
+    // expect balance update and lock state
+
     const { testAccount } = localnet.context
     const { client } = await deploy(testAccount)
-    const result = await client
-      .newGroup()
-      .hello({ args: { name: 'World' } })
-      .hello({ args: { name: 'Jane' } })
-      .simulate()
 
-    expect(result.returns[0]).toBe('Hello, World')
-    expect(result.returns[1]).toBe('Hello, Jane')
-    expect(result.simulateResponse.txnGroups[0].appBudgetConsumed).toBeLessThan(100)
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = getBytes(keccak256(passwordBytes))
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 5,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+    expect(sent.txIds.length).toBe(2)
+
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    expect(escrow.tokenId).toBe(0n)
+    expect(escrow.amount).toBe(1_000_000n)
+    expect(escrow.account).toBe(testAccount.addr.toString())
+  })
+
+  test('should prevent funding with zero value', async () => {
+    // call fund with 0 value and expect revert or error
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = getBytes(keccak256(passwordBytes))
+    console.log('passwordHash', passwordHash)
+    await expect(
+      client.send.create({
+        args: {
+          txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+            amount: 0,
+            receiver: client.appAddress,
+            sender: testAccount.addr,
+            suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+          }),
+          rescueDelay: 5,
+          secretHash: passwordHash,
+        },
+        boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+      }),
+    ).rejects.toThrowError()
+  })
+
+  test('should allow receiver to claim funds with correct secret before expiry - native token', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 100,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+    expect(sent.txIds.length).toBe(2)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+    const redeem = await client.send.withdraw({
+      args: {
+        secret: passwordBytes,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+      staticFee: AlgoAmount.MicroAlgo(2000),
+    })
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+    expect(myNewBalance - myBalance).toBe(1_000_000n - 2000n)
+  })
+  test('should allow receiver to claim funds with correct secret before expiry - ASA token', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const tx = await localnet.context.algod
+      .sendRawTransaction(
+        makeAssetCreateTxnWithSuggestedParamsFromObject({
+          sender: testAccount.addr,
+          assetName: 'ASA',
+          decimals: 6,
+          total: 1_000_000_000_000_000n,
+          unitName: 'ASA',
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }).signTxn(testAccount.sk),
+      )
+      .do()
+    const confiramtion = await algosdk.waitForConfirmation(localnet.context.algod, tx.txid, 4)
+    const asaId = BigInt(confiramtion.assetIndex ?? 0)
+    expect(asaId).toBeGreaterThan(0n)
+    // optin the escrow to this asa
+    await client.send.optInToAsa({
+      args: {
+        assetId: asaId,
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 100_000n,
+          receiver: client.appAddress,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+          sender: testAccount.addr,
+        }),
+      },
+      staticFee: AlgoAmount.MicroAlgo(2000),
+    })
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makeAssetTransferTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+          assetIndex: asaId,
+        }),
+        rescueDelay: 100,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+    expect(sent.txIds.length).toBe(2)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance =
+      (await localnet.context.algod.accountInformation(testAccount.addr).do()).assets?.find((a) => a.assetId == asaId)
+        ?.amount ?? 0n
+    expect(myBalance).toBeGreaterThan(0n)
+    const redeem = await client.send.withdraw({
+      args: {
+        secret: passwordBytes,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+      staticFee: AlgoAmount.MicroAlgo(2000),
+    })
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance =
+      (await localnet.context.algod.accountInformation(testAccount.addr).do()).assets?.find((a) => a.assetId == asaId)
+        ?.amount ?? 0n
+    expect(myNewBalance - myBalance).toBe(1_000_000n)
+  })
+
+  test('should not allow claim with incorrect secret', async () => {
+    // fund contract
+    // call claim with wrong secret
+    // expect error
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const wrongPasswordBytes = new Uint8Array(50)
+    crypto.getRandomValues(wrongPasswordBytes)
+    const passwordHash = getBytes(keccak256(passwordBytes))
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 5,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+
+    await expect(
+      client.send.withdraw({
+        args: {
+          secret: passwordBytes,
+          secretHash: wrongPasswordBytes,
+        },
+        boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+        staticFee: AlgoAmount.MicroAlgo(2000),
+      }),
+    ).rejects.toThrowError()
+  })
+
+  test('should not allow claim after timelock expires', async () => {
+    // fund, increase time, try to claim
+    // expect revert
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 1,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+    expect(sent.txIds.length).toBe(2)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+
+    await waitUntilTime(escrow.rescueTime, client, localnet.context)
+
+    await expect(
+      client.send.withdraw({
+        args: {
+          secret: passwordBytes,
+          secretHash: passwordHash,
+        },
+        boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+        staticFee: AlgoAmount.MicroAlgo(2000),
+      }),
+    ).rejects.toThrowError()
+  })
+  test('should allow sender to refund after timelock expires', async () => {
+    // fund, increase time past timelock
+    // call refund
+    // expect sender gets funds back
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 1,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+    expect(sent.txIds.length).toBe(2)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+
+    await waitUntilTime(escrow.rescueTime, client, localnet.context)
+
+    await client.send.cancel({
+      args: {
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+      staticFee: AlgoAmount.MicroAlgo(2000),
+    })
+
+    const myNewBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+    expect(myNewBalance - myBalance).toBe(1_000_000n - 2000n)
+  })
+
+  test('should not allow refund before timelock expires', async () => {
+    // fund, call refund immediately
+    // expect revert
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const wrongPasswordBytes = new Uint8Array(50)
+    crypto.getRandomValues(wrongPasswordBytes)
+    const passwordHash = getBytes(keccak256(passwordBytes))
+    console.log('passwordHash', passwordHash)
+    await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 20,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+
+    await expect(
+      client.send.cancel({
+        args: {
+          secretHash: wrongPasswordBytes,
+        },
+        boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+        staticFee: AlgoAmount.MicroAlgo(2000),
+      }),
+    ).rejects.toThrowError()
+  })
+
+  test('should not allow double claim or refund', async () => {
+    // claim, then attempt second claim or refund
+    // expect revert
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 100,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+    })
+    expect(sent.txIds.length).toBe(2)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+    const redeem = await client.send.withdraw({
+      args: {
+        secret: passwordBytes,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+      staticFee: AlgoAmount.MicroAlgo(2000),
+    })
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+    expect(myNewBalance - myBalance).toBe(1_000_000n - 2000n)
+    await expect(
+      client.getEscrow({
+        args: {
+          secretHash: passwordHash,
+        },
+        boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+        staticFee: AlgoAmount.MicroAlgo(2000),
+      }),
+    ).rejects.toThrowError()
+
+    await expect(
+      client.send.withdraw({
+        args: {
+          secret: passwordBytes,
+          secretHash: passwordHash,
+        },
+        boxReferences: [getBoxNameE(passwordHash), getBoxNameD(0n)],
+        staticFee: AlgoAmount.MicroAlgo(2000),
+      }),
+    ).rejects.toThrowError()
   })
 })
