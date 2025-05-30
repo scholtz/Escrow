@@ -14,4 +14,6 @@ By default, `projects_root_path` parameter is set to `projects`. Which instructs
 
 To get started refer to `README.md` files in respective sub-projects in the `projects` directory.
 
+Go to [Escrow README.md](projects/Escrow/README.md)
+
 To learn more about algokit, visit [documentation](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/algokit.md).
