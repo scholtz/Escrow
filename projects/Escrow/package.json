@@ -20,7 +20,7 @@
     "npm": ">=9.0"
   },
   "dependencies": {
-    "@algorandfoundation/algorand-typescript": "~1.0.0-beta.25 <1.0.0",
+    "@algorandfoundation/algorand-typescript": "~1.0.0-beta.70 <1.0.0",
     "ethers": "^6.14.3"
   },
   "devDependencies": {
