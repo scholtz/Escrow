@@ -18,7 +18,23 @@ interface InputOptions {
   tokenId: bigint
   deposit: bigint
   sender: string | Address
+  destinationSetter: string | Address
+  memo: Uint8Array
 }
+
+const concatTo256 = (arrays: Uint8Array[]) => {
+  const result = new Uint8Array(256)
+  let offset = 0
+  for (const arr of arrays) {
+    if (offset + arr.length > 256) {
+      throw new Error('Total length exceeds 256 bytes')
+    }
+    result.set(arr, offset)
+    offset += arr.length
+  }
+  return result
+}
+
 export const createEscrow = async (input: InputOptions) => {
   const params = await input.client.algorand.client.algod.getTransactionParams().do()
   const depositTx =
@@ -65,7 +81,7 @@ export const createEscrow = async (input: InputOptions) => {
       })
     }
   }
-
+  const memoUint256 = concatTo256([input.memo])
   return await input.client.send.create({
     args: {
       rescueDelay: input.rescueDelay,
@@ -73,6 +89,8 @@ export const createEscrow = async (input: InputOptions) => {
       taker: input.taker,
       txnDeposit: depositTx,
       txnMbrDeposit: mbrDeposit,
+      memo: memoUint256,
+      destinationSetter: input.destinationSetter.toString(),
     },
     sender: input.sender,
     boxReferences: boxes,

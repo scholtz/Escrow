@@ -2,6 +2,7 @@ import { EscrowClient, EscrowFactory, type EscrowInstance } from '../smart_contr
 import { claimFromEscrow } from './actions/claimFromEscrow'
 import { createEscrow } from './actions/createEscrow'
 import { rescueEscrow } from './actions/rescueEscrow'
+import { setTaker } from './actions/setTaker'
 import { getBoxNameD } from './getBoxNameD'
 import { getBoxNameD0 } from './getBoxNameD0'
 import { getBoxNameE } from './getBoxNameE'
@@ -14,5 +15,6 @@ export {
   getBoxNameD0,
   getBoxNameE,
   rescueEscrow,
+  setTaker,
 }
 export type { EscrowInstance }

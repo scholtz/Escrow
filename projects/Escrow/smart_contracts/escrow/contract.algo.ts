@@ -22,7 +22,9 @@ export class EscrowInstance extends arc4.Struct<{
   amount: UintN64
   mbrAmount: UintN64
   creator: Address
+  destinationSetter: Address
   taker: Address
+  memo: arc4.StaticBytes<256>
   secretHash: arc4.StaticBytes<32>
 }> {}
 
@@ -52,6 +54,8 @@ export class Escrow extends Contract {
     rescueDelay: uint64,
     secretHash: arc4.StaticBytes<32>,
     taker: Address,
+    destinationSetter: Address,
+    memo: arc4.StaticBytes<256>,
   ): void {
     let tokenId: uint64 = 0
     let amount: uint64 = 0
@@ -75,6 +79,10 @@ export class Escrow extends Contract {
     }
     assert(amount > 0, 'Deposit should be positive number')
     assert(depositIsValid, 'Deposit must be asset transfer or payment')
+
+    if (destinationSetter !== new Address()) {
+      assert(destinationSetter === taker, 'If destination setter is set, the taker must be set to the same account')
+    }
 
     if (tokenId === 0) {
       const tokenIdN = new UintN64(tokenId)
@@ -108,6 +116,8 @@ export class Escrow extends Contract {
       secretHash: secretHash,
       amount: new UintN64(amount),
       mbrAmount: new UintN64(txnMBRDeposit.amount),
+      destinationSetter: destinationSetter,
+      memo: memo,
     })
 
     this.escrows(secretHash).value = escrow.copy()
@@ -146,6 +156,7 @@ export class Escrow extends Contract {
   @arc4.abimethod({ readonly: true })
   public getMBRDepositAmount(): uint64 {
     const bytes = new StaticBytes<32>()
+    const memo = new StaticBytes<256>()
     const n = new UintN64(Global.latestTimestamp)
     const address = new Address(Txn.sender)
     const mbrAtStart = Global.currentApplicationAddress.minBalance
@@ -158,6 +169,8 @@ export class Escrow extends Contract {
       secretHash: bytes,
       taker: address,
       tokenId: n,
+      memo: memo,
+      destinationSetter: address,
     })
     this.escrows(bytes).value = sampleBox.copy()
     const mbrAtEnd = Global.currentApplicationAddress.minBalance
@@ -189,6 +202,10 @@ export class Escrow extends Contract {
     assert(
       Global.latestTimestamp < escrow.rescueTime.native,
       'Escrow can be redeemed with password up to the rescue time',
+    )
+    assert(
+      escrow.destinationSetter === new Address(),
+      'The funds cannot be withdrawn until destination setter sets the real taker',
     )
 
     // cleanup box
@@ -236,6 +253,25 @@ export class Escrow extends Contract {
     }
   }
 
+  /**
+   * When destination setter is set, the destination setter can set the address of end user who receive the funds
+   *
+   * @param secretHash Hash of the secret in keccak256
+   * @param destination Taker of the assets
+   */
+  @arc4.abimethod()
+  public setTaker(secretHash: arc4.StaticBytes<32>, taker: Address) {
+    assert(this.escrows(secretHash).exists, 'The escrow does not exists')
+    const escrow = this.escrows(secretHash).value.copy()
+    assert(
+      escrow.rescueTime.native >= Global.latestTimestamp,
+      'The escrow cannot be modified after the rescue time has been reached',
+    )
+    assert(new Address(Txn.sender) === escrow.destinationSetter, 'Destination setter is not valid')
+    // cleanup box
+    this.escrows(secretHash).value.taker = taker
+    this.escrows(secretHash).value.destinationSetter = new Address() // only one attempt to set the taker is allowed
+  }
   /**
    * Anyone can optin this contract to his ASA if he deposits MBR
    *

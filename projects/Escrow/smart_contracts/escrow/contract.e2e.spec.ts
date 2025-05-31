@@ -13,7 +13,15 @@ import { getBytes, keccak256 } from 'ethers'
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import { EscrowClient, EscrowFactory } from '../artifacts/escrow/EscrowClient'
 
-import { claimFromEscrow, createEscrow, getBoxNameD, getBoxNameD0, getBoxNameE, rescueEscrow } from '../../src/index'
+import {
+  claimFromEscrow,
+  createEscrow,
+  getBoxNameD,
+  getBoxNameD0,
+  getBoxNameE,
+  rescueEscrow,
+  setTaker,
+} from '../../src/index'
 
 describe('Escrow contract', () => {
   const localnet = algorandFixture()
@@ -85,6 +93,7 @@ describe('Escrow contract', () => {
     const { client } = await deploy(testAccount)
 
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = getBytes(keccak256(passwordBytes))
     console.log('passwordHash', passwordHash)
@@ -106,6 +115,8 @@ describe('Escrow contract', () => {
         rescueDelay: 5,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
     })
@@ -125,6 +136,7 @@ describe('Escrow contract', () => {
     const { client } = await deploy(testAccount)
 
     const mbrAmount = await client.getMbrDepositAmount({ args: {} })
+    const memo = new Uint8Array(256)
     const passwordBytes = new Uint8Array(50)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = getBytes(keccak256(passwordBytes))
@@ -147,10 +159,88 @@ describe('Escrow contract', () => {
           rescueDelay: 5,
           secretHash: passwordHash,
           taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+          destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+          memo: memo,
         },
         boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
       }),
     ).rejects.toThrowError()
+  })
+
+  test('should allow to set destination setter', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+
+    const destinationSetterAccount = await localnet.context.generateAccount({ initialFunds: AlgoAmount.Algo(1) })
+
+    const mbrAmount = await client.getMbrDepositAmount({ args: {} })
+    const memo = new Uint8Array(256)
+    crypto.getRandomValues(memo)
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+    const sent = await client.send.create({
+      args: {
+        txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: 1_000_000,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        txnMbrDeposit: makePaymentTxnWithSuggestedParamsFromObject({
+          amount: mbrAmount,
+          receiver: client.appAddress,
+          sender: testAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }),
+        rescueDelay: 100,
+        secretHash: passwordHash,
+        taker: destinationSetterAccount.addr.toString(),
+        destinationSetter: destinationSetterAccount.addr.toString(),
+        memo: memo,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
+    })
+    expect(sent.txIds.length).toBe(3)
+
+    let escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    expect(Buffer.from(escrow.memo).toString('hex')).toBe(Buffer.from(memo).toString('hex'))
+    expect(escrow.destinationSetter).toBe(destinationSetterAccount.addr.toString())
+    expect(escrow.taker).toBe(destinationSetterAccount.addr.toString())
+    console.log('escrow', escrow)
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+
+    await client.send.setTaker({
+      args: {
+        taker: testAccount.addr.toString(),
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash)],
+      sender: destinationSetterAccount,
+    })
+    escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow after setter executed', escrow)
+    expect(escrow.destinationSetter).toBe(algosdk.ALGORAND_ZERO_ADDRESS_STRING)
+    expect(escrow.taker).toBe(testAccount.addr.toString())
+
+    const redeem = await client.send.withdraw({
+      args: {
+        secret: passwordBytes,
+        secretHash: passwordHash,
+      },
+      boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
+      staticFee: AlgoAmount.MicroAlgo(2000),
+    })
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do()).amount
+    expect(myNewBalance - myBalance).toBe(1_000_000n - 2000n + mbrAmount)
   })
 
   test('should allow receiver to claim funds with correct secret before expiry - native token', async () => {
@@ -161,7 +251,7 @@ describe('Escrow contract', () => {
     const { testAccount } = localnet.context
     const { client } = await deploy(testAccount)
     const mbrAmount = await client.getMbrDepositAmount({ args: {} })
-
+    const memo = new Uint8Array(256)
     const passwordBytes = new Uint8Array(50)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
@@ -183,6 +273,9 @@ describe('Escrow contract', () => {
         rescueDelay: 100,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
     })
@@ -244,6 +337,7 @@ describe('Escrow contract', () => {
     })
 
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
     console.log('passwordHash', passwordHash)
@@ -265,6 +359,9 @@ describe('Escrow contract', () => {
         rescueDelay: 100,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0(), getBoxNameD(asaId)],
     })
@@ -307,6 +404,7 @@ describe('Escrow contract', () => {
     crypto.getRandomValues(wrongPasswordBytes)
     const passwordHash = getBytes(keccak256(passwordBytes))
     console.log('passwordHash', passwordHash)
+    const memo = new Uint8Array(256)
     const sent = await client.send.create({
       args: {
         txnDeposit: makePaymentTxnWithSuggestedParamsFromObject({
@@ -324,6 +422,9 @@ describe('Escrow contract', () => {
         rescueDelay: 5,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
     })
@@ -349,6 +450,7 @@ describe('Escrow contract', () => {
     const mbrAmount = await client.getMbrDepositAmount({ args: {} })
 
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
     console.log('passwordHash', passwordHash)
@@ -369,6 +471,8 @@ describe('Escrow contract', () => {
         rescueDelay: 1,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
     })
@@ -401,6 +505,7 @@ describe('Escrow contract', () => {
     const mbrAmount = await client.getMbrDepositAmount({ args: {} })
 
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
     console.log('passwordHash', passwordHash)
@@ -421,6 +526,9 @@ describe('Escrow contract', () => {
         rescueDelay: 1,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
     })
@@ -454,6 +562,7 @@ describe('Escrow contract', () => {
     const mbrAmount = await client.getMbrDepositAmount({ args: {} })
 
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const wrongPasswordBytes = new Uint8Array(50)
     crypto.getRandomValues(wrongPasswordBytes)
@@ -476,6 +585,9 @@ describe('Escrow contract', () => {
         rescueDelay: 20,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
     })
@@ -498,8 +610,9 @@ describe('Escrow contract', () => {
     const { testAccount } = localnet.context
     const { client } = await deploy(testAccount)
     const mbrAmount = await client.getMbrDepositAmount({ args: {} })
-    expect(mbrAmount).toBe(70_100n)
+    expect(mbrAmount).toBe(185300n)
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
     console.log('passwordHash', passwordHash)
@@ -520,6 +633,9 @@ describe('Escrow contract', () => {
         rescueDelay: 100,
         secretHash: passwordHash,
         taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0()],
     })
@@ -618,6 +734,7 @@ describe('Escrow contract', () => {
     })
 
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
     console.log('passwordHash', passwordHash)
@@ -639,6 +756,9 @@ describe('Escrow contract', () => {
         rescueDelay: 100,
         secretHash: passwordHash,
         taker: takerAccount.addr.toString(),
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0(), getBoxNameD(asaId)],
     })
@@ -727,6 +847,7 @@ describe('Escrow contract', () => {
     })
 
     const passwordBytes = new Uint8Array(50)
+    const memo = new Uint8Array(256)
     crypto.getRandomValues(passwordBytes)
     const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
     console.log('passwordHash', passwordHash)
@@ -748,6 +869,9 @@ describe('Escrow contract', () => {
         rescueDelay: 100,
         secretHash: passwordHash,
         taker: takerAccount.addr.toString(),
+
+        destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+        memo: memo,
       },
       boxReferences: [getBoxNameE(passwordHash), getBoxNameD0(), getBoxNameD(asaId)],
     })
@@ -779,7 +903,67 @@ describe('Escrow contract', () => {
         ?.amount ?? 0n
     expect(takerBalance).toBe(1_000_000n)
   })
+  test('test npm methods create, setTaker, withdraw - native token', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
 
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+    const destinationSetterAccount = await localnet.context.generateAccount({ initialFunds: AlgoAmount.Algo(1) })
+
+    const mbrAmount = await client.getMbrDepositAmount({ args: {} })
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+
+    const sent = await createEscrow({
+      client: client,
+      deposit: 2_000_000n,
+      rescueDelay: 100n,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      taker: destinationSetterAccount.addr.toString(),
+      tokenId: 0n,
+      tokenType: 'native',
+      destinationSetter: destinationSetterAccount.addr.toString(),
+      memo: new Uint8Array(Buffer.from('bridge to xy')),
+    })
+    await setTaker({
+      client: client,
+      secretHash: passwordHash,
+      sender: destinationSetterAccount,
+      taker: testAccount,
+      tokenId: 0n,
+    })
+    expect(sent.txIds.length).toBe(3)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    expect(escrow.amount).toBe(2_000_000n)
+    expect(escrow.tokenId).toBe(0n)
+    expect(escrow.taker).toBe(testAccount.addr.toString())
+    expect(escrow.creator).toBe(testAccount.addr.toString())
+    expect(Buffer.from(escrow.secretHash).toString('hex')).toBe(Buffer.from(passwordHash).toString('hex'))
+
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do())?.amount ?? 0n
+    expect(myBalance).toBeGreaterThan(0n)
+
+    const redeem = await claimFromEscrow({
+      client: client,
+      secret: passwordBytes,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      tokenId: 0n,
+    })
+
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do())?.amount ?? 0n
+    expect(myNewBalance - myBalance).toBe(2_000_000n + mbrAmount - 2000n)
+  })
   test('test npm methods create, claim - native token', async () => {
     // fund contract
     // call claim with correct secret
@@ -803,6 +987,8 @@ describe('Escrow contract', () => {
       taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
       tokenId: 123n,
       tokenType: 'native',
+      destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      memo: new Uint8Array(Buffer.from('bridge to xy')),
     })
 
     expect(sent.txIds.length).toBe(3)
@@ -854,6 +1040,8 @@ describe('Escrow contract', () => {
       taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
       tokenId: 0n,
       tokenType: 'native',
+      destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      memo: new Uint8Array(Buffer.from('bridge to xy')),
     })
 
     expect(sent.txIds.length).toBe(3)
@@ -937,6 +1125,8 @@ describe('Escrow contract', () => {
       taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
       tokenId: asaId,
       tokenType: 'asa',
+      destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      memo: new Uint8Array(Buffer.from('bridge to xy')),
     })
 
     expect(sent.txIds.length).toBe(3)
@@ -1023,6 +1213,8 @@ describe('Escrow contract', () => {
       taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
       tokenId: asaId,
       tokenType: 'asa',
+      destinationSetter: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      memo: new Uint8Array(Buffer.from('bridge to xy')),
     })
 
     expect(sent.txIds.length).toBe(3)
