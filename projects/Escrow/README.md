@@ -4,6 +4,12 @@ Project was created as production ready HTLC solution for AVM networks as part o
 
 This project has been generated using AlgoKit. See below for default getting started instructions.
 
+# NPM
+
+```
+npm i algorand-htlc
+```
+
 # Setup
 
 ### Pre-requisites
