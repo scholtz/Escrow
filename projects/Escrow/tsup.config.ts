@@ -12,5 +12,6 @@ export default defineConfig({
     'algosdk',
     '@algorandfoundation/algorand-typescript',
     '@algorandfoundation/algokit-client-generator',
+    'buffer',
   ],
 })

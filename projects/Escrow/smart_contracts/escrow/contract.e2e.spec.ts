@@ -13,6 +13,8 @@ import { getBytes, keccak256 } from 'ethers'
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import { EscrowClient, EscrowFactory } from '../artifacts/escrow/EscrowClient'
 
+import { claimFromEscrow, createEscrow, getBoxNameD, getBoxNameD0, getBoxNameE, rescueEscrow } from '../../src/index'
+
 describe('Escrow contract', () => {
   const localnet = algorandFixture()
   beforeAll(() => {
@@ -23,17 +25,8 @@ describe('Escrow contract', () => {
     registerDebugEventHandlers()
   })
   beforeEach(localnet.newScope)
-  const getBoxNameE = (passwordHash: Uint8Array) => {
-    return new Uint8Array(Buffer.from([...Buffer.from('e', 'ascii'), ...passwordHash]))
-  }
-  const getBoxNameD = (tokenId: bigint) => {
-    return new Uint8Array(Buffer.from([...Buffer.from('d', 'ascii'), ...algosdk.encodeUint64(tokenId)]))
-  }
-  const getBoxNameD0 = () => {
-    return new Uint8Array(Buffer.from([...Buffer.from('d', 'ascii'), ...algosdk.encodeUint64(0)]))
-  }
   const waitUntilTime = async (time: bigint, client: EscrowClient, context: AlgorandTestAutomationContext) => {
-    while ((await client.latestTimestamp({ args: {} })) < time) {
+    while ((await client.latestTimestamp({ args: {} })) <= time) {
       // Your code here
       await context.generateAccount({ initialFunds: AlgoAmount.Algo(1) })
     }
@@ -785,5 +778,281 @@ describe('Escrow contract', () => {
       (await localnet.context.algod.accountInformation(takerAccount.addr).do()).assets?.find((a) => a.assetId == asaId)
         ?.amount ?? 0n
     expect(takerBalance).toBe(1_000_000n)
+  })
+
+  test('test npm methods create, claim - native token', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+    const mbrAmount = await client.getMbrDepositAmount({ args: {} })
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+
+    const sent = await createEscrow({
+      client: client,
+      deposit: 2_000_000n,
+      rescueDelay: 100n,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      tokenId: 123n,
+      tokenType: 'native',
+    })
+
+    expect(sent.txIds.length).toBe(3)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    expect(escrow.amount).toBe(2_000_000n)
+    expect(escrow.tokenId).toBe(0n)
+    expect(escrow.creator).toBe(testAccount.addr.toString())
+    expect(Buffer.from(escrow.secretHash).toString('hex')).toBe(Buffer.from(passwordHash).toString('hex'))
+
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do())?.amount ?? 0n
+    expect(myBalance).toBeGreaterThan(0n)
+
+    const redeem = await claimFromEscrow({
+      client: client,
+      secret: passwordBytes,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      tokenId: 0n,
+    })
+
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do())?.amount ?? 0n
+    expect(myNewBalance - myBalance).toBe(2_000_000n + mbrAmount - 2000n)
+  })
+
+  test('test npm methods create, rescue - native token', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+    const mbrAmount = await client.getMbrDepositAmount({ args: {} })
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+
+    const sent = await createEscrow({
+      client: client,
+      deposit: 2_000_000n,
+      rescueDelay: 100n,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      tokenId: 0n,
+      tokenType: 'native',
+    })
+
+    expect(sent.txIds.length).toBe(3)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    expect(escrow.amount).toBe(2_000_000n)
+    expect(escrow.tokenId).toBe(0n)
+    expect(escrow.creator).toBe(testAccount.addr.toString())
+    expect(Buffer.from(escrow.secretHash).toString('hex')).toBe(Buffer.from(passwordHash).toString('hex'))
+
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do())?.amount ?? 0n
+    expect(myBalance).toBeGreaterThan(0n)
+
+    await waitUntilTime(escrow.rescueTime, client, localnet.context)
+
+    const redeem = await rescueEscrow({
+      client: client,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      tokenId: 0n,
+    })
+
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance = (await localnet.context.algod.accountInformation(testAccount.addr).do())?.amount ?? 0n
+    expect(myNewBalance - myBalance).toBe(2_000_000n + mbrAmount - 2000n)
+  })
+
+  test('test npm methods create, claim - ASA token', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+    const mbrAmount = await client.getMbrDepositAmount({ args: {} })
+    const takerAccount = await localnet.context.generateAccount({ initialFunds: AlgoAmount.Algo(1) })
+    // create token
+    const tx = await localnet.context.algod
+      .sendRawTransaction(
+        makeAssetCreateTxnWithSuggestedParamsFromObject({
+          sender: testAccount.addr,
+          assetName: 'ASA',
+          decimals: 6,
+          total: 1_000_000_000_000_000n,
+          unitName: 'ASA',
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }).signTxn(testAccount.sk),
+      )
+      .do()
+    const confiramtion = await algosdk.waitForConfirmation(localnet.context.algod, tx.txid, 4)
+    const asaId = BigInt(confiramtion.assetIndex ?? 0)
+    expect(asaId).toBeGreaterThan(0n)
+
+    // taker optin to the token
+    const takerOptin = await localnet.context.algod
+      .sendRawTransaction(
+        makeAssetTransferTxnWithSuggestedParamsFromObject({
+          sender: takerAccount.addr,
+          amount: 0,
+          assetIndex: asaId,
+          receiver: takerAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }).signTxn(takerAccount.sk),
+      )
+      .do()
+    expect(takerOptin.txid).toBeDefined()
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+
+    const sent = await createEscrow({
+      client: client,
+      deposit: 2_000_000n,
+      rescueDelay: 100n,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      tokenId: asaId,
+      tokenType: 'asa',
+    })
+
+    expect(sent.txIds.length).toBe(3)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    expect(escrow.amount).toBe(2_000_000n)
+    expect(escrow.tokenId).toBe(asaId)
+    expect(escrow.creator).toBe(testAccount.addr.toString())
+    expect(Buffer.from(escrow.secretHash).toString('hex')).toBe(Buffer.from(passwordHash).toString('hex'))
+
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance =
+      (await localnet.context.algod.accountInformation(testAccount.addr).do()).assets?.find((a) => a.assetId == asaId)
+        ?.amount ?? 0n
+    expect(myBalance).toBeGreaterThan(0n)
+
+    const redeem = await claimFromEscrow({
+      client: client,
+      secret: passwordBytes,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      tokenId: asaId,
+    })
+
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance =
+      (await localnet.context.algod.accountInformation(testAccount.addr).do()).assets?.find((a) => a.assetId == asaId)
+        ?.amount ?? 0n
+    expect(myNewBalance - myBalance).toBe(2_000_000n)
+  })
+
+  test('test npm methods create, rescue - ASA token', async () => {
+    // fund contract
+    // call claim with correct secret
+    // expect transfer and locked state to be cleared
+
+    const { testAccount } = localnet.context
+    const { client } = await deploy(testAccount)
+    const mbrAmount = await client.getMbrDepositAmount({ args: {} })
+    const takerAccount = await localnet.context.generateAccount({ initialFunds: AlgoAmount.Algo(1) })
+    // create token
+    const tx = await localnet.context.algod
+      .sendRawTransaction(
+        makeAssetCreateTxnWithSuggestedParamsFromObject({
+          sender: testAccount.addr,
+          assetName: 'ASA',
+          decimals: 6,
+          total: 1_000_000_000_000_000n,
+          unitName: 'ASA',
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }).signTxn(testAccount.sk),
+      )
+      .do()
+    const confiramtion = await algosdk.waitForConfirmation(localnet.context.algod, tx.txid, 4)
+    const asaId = BigInt(confiramtion.assetIndex ?? 0)
+    expect(asaId).toBeGreaterThan(0n)
+
+    // taker optin to the token
+    const takerOptin = await localnet.context.algod
+      .sendRawTransaction(
+        makeAssetTransferTxnWithSuggestedParamsFromObject({
+          sender: takerAccount.addr,
+          amount: 0,
+          assetIndex: asaId,
+          receiver: takerAccount.addr,
+          suggestedParams: await localnet.context.algod.getTransactionParams().do(),
+        }).signTxn(takerAccount.sk),
+      )
+      .do()
+    expect(takerOptin.txid).toBeDefined()
+
+    const passwordBytes = new Uint8Array(50)
+    crypto.getRandomValues(passwordBytes)
+    const passwordHash = await client.makeHash({ args: { secret: passwordBytes } })
+    console.log('passwordHash', passwordHash)
+
+    const sent = await createEscrow({
+      client: client,
+      deposit: 2_000_000n,
+      rescueDelay: 100n,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      taker: algosdk.ALGORAND_ZERO_ADDRESS_STRING,
+      tokenId: asaId,
+      tokenType: 'asa',
+    })
+
+    expect(sent.txIds.length).toBe(3)
+    const escrow = await client.getEscrow({ args: { secretHash: passwordHash } })
+    console.log('escrow', escrow)
+    expect(escrow.amount).toBe(2_000_000n)
+    expect(escrow.tokenId).toBe(asaId)
+    expect(escrow.creator).toBe(testAccount.addr.toString())
+    expect(Buffer.from(escrow.secretHash).toString('hex')).toBe(Buffer.from(passwordHash).toString('hex'))
+
+    const balanceContract = (await localnet.context.algod.accountInformation(client.appAddress).do()).amount
+    console.log('balance', client.appAddress.toString(), balanceContract)
+    const myBalance =
+      (await localnet.context.algod.accountInformation(testAccount.addr).do()).assets?.find((a) => a.assetId == asaId)
+        ?.amount ?? 0n
+    expect(myBalance).toBeGreaterThan(0n)
+
+    await waitUntilTime(escrow.rescueTime, client, localnet.context)
+
+    const redeem = await rescueEscrow({
+      client: client,
+      secretHash: passwordHash,
+      sender: testAccount.addr,
+      tokenId: asaId,
+    })
+
+    expect(redeem.txIds.length).toBe(1)
+    const myNewBalance =
+      (await localnet.context.algod.accountInformation(testAccount.addr).do()).assets?.find((a) => a.assetId == asaId)
+        ?.amount ?? 0n
+    expect(myNewBalance - myBalance).toBe(2_000_000n)
   })
 })
