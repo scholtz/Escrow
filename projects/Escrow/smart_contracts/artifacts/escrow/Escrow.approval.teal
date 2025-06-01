@@ -20,7 +20,7 @@ main_after_if_else@21:
     return
 
 main_sendOnlineKeyRegistration_route@14:
-    // smart_contracts/escrow/contract.algo.ts:355
+    // smart_contracts/escrow/contract.algo.ts:356
     // @arc4.abimethod()
     txn OnCompletion
     !
@@ -43,7 +43,7 @@ main_sendOnlineKeyRegistration_route@14:
     btoi
     txna ApplicationArgs 7
     btoi
-    // smart_contracts/escrow/contract.algo.ts:355
+    // smart_contracts/escrow/contract.algo.ts:356
     // @arc4.abimethod()
     callsub sendOnlineKeyRegistration
     dup
@@ -60,7 +60,7 @@ main_sendOnlineKeyRegistration_route@14:
     return
 
 main_adminWithdraw_route@13:
-    // smart_contracts/escrow/contract.algo.ts:337
+    // smart_contracts/escrow/contract.algo.ts:338
     // @arc4.abimethod({ readonly: true })
     txn OnCompletion
     !
@@ -71,7 +71,7 @@ main_adminWithdraw_route@13:
     // export class Escrow extends Contract {
     txna ApplicationArgs 1
     btoi
-    // smart_contracts/escrow/contract.algo.ts:337
+    // smart_contracts/escrow/contract.algo.ts:338
     // @arc4.abimethod({ readonly: true })
     callsub adminWithdraw
     itob
@@ -83,7 +83,7 @@ main_adminWithdraw_route@13:
     return
 
 main_adminWithdrawable_route@12:
-    // smart_contracts/escrow/contract.algo.ts:316
+    // smart_contracts/escrow/contract.algo.ts:317
     // @arc4.abimethod({ readonly: true })
     txn OnCompletion
     !
@@ -94,7 +94,7 @@ main_adminWithdrawable_route@12:
     // export class Escrow extends Contract {
     txna ApplicationArgs 1
     btoi
-    // smart_contracts/escrow/contract.algo.ts:316
+    // smart_contracts/escrow/contract.algo.ts:317
     // @arc4.abimethod({ readonly: true })
     callsub adminWithdrawable
     itob
@@ -106,7 +106,7 @@ main_adminWithdrawable_route@12:
     return
 
 main_optInToToken_route@11:
-    // smart_contracts/escrow/contract.algo.ts:281
+    // smart_contracts/escrow/contract.algo.ts:282
     // @arc4.abimethod()
     txn OnCompletion
     !
@@ -124,14 +124,14 @@ main_optInToToken_route@11:
     ==
     assert // transaction type is pay
     txna ApplicationArgs 1
-    // smart_contracts/escrow/contract.algo.ts:281
+    // smart_contracts/escrow/contract.algo.ts:282
     // @arc4.abimethod()
     callsub optInToToken
     intc_0 // 1
     return
 
 main_setTaker_route@10:
-    // smart_contracts/escrow/contract.algo.ts:262
+    // smart_contracts/escrow/contract.algo.ts:263
     // @arc4.abimethod()
     txn OnCompletion
     !
@@ -142,14 +142,14 @@ main_setTaker_route@10:
     // export class Escrow extends Contract {
     txna ApplicationArgs 1
     txna ApplicationArgs 2
-    // smart_contracts/escrow/contract.algo.ts:262
+    // smart_contracts/escrow/contract.algo.ts:263
     // @arc4.abimethod()
     callsub setTaker
     intc_0 // 1
     return
 
 main_cancel_route@9:
-    // smart_contracts/escrow/contract.algo.ts:237
+    // smart_contracts/escrow/contract.algo.ts:238
     // @arc4.abimethod()
     txn OnCompletion
     !
@@ -159,14 +159,14 @@ main_cancel_route@9:
     // smart_contracts/escrow/contract.algo.ts:31
     // export class Escrow extends Contract {
     txna ApplicationArgs 1
-    // smart_contracts/escrow/contract.algo.ts:237
+    // smart_contracts/escrow/contract.algo.ts:238
     // @arc4.abimethod()
     callsub cancel
     intc_0 // 1
     return
 
 main_withdraw_route@8:
-    // smart_contracts/escrow/contract.algo.ts:196
+    // smart_contracts/escrow/contract.algo.ts:197
     // @arc4.abimethod()
     txn OnCompletion
     !
@@ -177,14 +177,14 @@ main_withdraw_route@8:
     // export class Escrow extends Contract {
     txna ApplicationArgs 1
     txna ApplicationArgs 2
-    // smart_contracts/escrow/contract.algo.ts:196
+    // smart_contracts/escrow/contract.algo.ts:197
     // @arc4.abimethod()
     callsub withdraw
     intc_0 // 1
     return
 
 main_latestTimestamp_route@7:
-    // smart_contracts/escrow/contract.algo.ts:185
+    // smart_contracts/escrow/contract.algo.ts:186
     // @arc4.abimethod({ readonly: true })
     txn OnCompletion
     !
@@ -201,7 +201,7 @@ main_latestTimestamp_route@7:
     return
 
 main_getMBRDepositAmount_route@6:
-    // smart_contracts/escrow/contract.algo.ts:156
+    // smart_contracts/escrow/contract.algo.ts:157
     // @arc4.abimethod({ readonly: true })
     txn OnCompletion
     !
@@ -675,6 +675,12 @@ getEscrow:
     frame_dig -1
     concat
     // smart_contracts/escrow/contract.algo.ts:147
+    // assert(this.escrows(secretHash).exists, 'Box must exist')
+    dup
+    box_len
+    bury 1
+    assert // Box must exist
+    // smart_contracts/escrow/contract.algo.ts:148
     // return this.escrows(secretHash).value
     box_get
     assert // Box must have value
@@ -683,19 +689,19 @@ getEscrow:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.getMBRDepositAmount() -> uint64:
 getMBRDepositAmount:
-    // smart_contracts/escrow/contract.algo.ts:160
+    // smart_contracts/escrow/contract.algo.ts:161
     // const n = new UintN64(Global.latestTimestamp)
     global LatestTimestamp
     itob
-    // smart_contracts/escrow/contract.algo.ts:161
+    // smart_contracts/escrow/contract.algo.ts:162
     // const address = new Address(Txn.sender)
     txn Sender
-    // smart_contracts/escrow/contract.algo.ts:162
+    // smart_contracts/escrow/contract.algo.ts:163
     // const mbrAtStart = Global.currentApplicationAddress.minBalance
     global CurrentApplicationAddress
     acct_params_get AcctMinBalance
     assert // account funded
-    // smart_contracts/escrow/contract.algo.ts:163-174
+    // smart_contracts/escrow/contract.algo.ts:164-175
     // const sampleBox = new EscrowInstance({
     //   amount: n,
     //   createdTime: n,
@@ -723,10 +729,10 @@ getMBRDepositAmount:
     concat
     uncover 2
     concat
-    // smart_contracts/escrow/contract.algo.ts:159
+    // smart_contracts/escrow/contract.algo.ts:160
     // const memo = new StaticBytes<256>()
     pushbytes 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-    // smart_contracts/escrow/contract.algo.ts:163-174
+    // smart_contracts/escrow/contract.algo.ts:164-175
     // const sampleBox = new EscrowInstance({
     //   amount: n,
     //   createdTime: n,
@@ -740,10 +746,10 @@ getMBRDepositAmount:
     //   destinationSetter: address,
     // })
     concat
-    // smart_contracts/escrow/contract.algo.ts:158
+    // smart_contracts/escrow/contract.algo.ts:159
     // const bytes = new StaticBytes<32>()
     bytec_2 // 0x0000000000000000000000000000000000000000000000000000000000000000
-    // smart_contracts/escrow/contract.algo.ts:163-174
+    // smart_contracts/escrow/contract.algo.ts:164-175
     // const sampleBox = new EscrowInstance({
     //   amount: n,
     //   createdTime: n,
@@ -760,11 +766,11 @@ getMBRDepositAmount:
     // smart_contracts/escrow/contract.algo.ts:35
     // public escrows = BoxMap<arc4.StaticBytes<32>, EscrowInstance>({ keyPrefix: 'e' })
     bytec 5 // 0x650000000000000000000000000000000000000000000000000000000000000000
-    // smart_contracts/escrow/contract.algo.ts:175
+    // smart_contracts/escrow/contract.algo.ts:176
     // this.escrows(bytes).value = sampleBox.copy()
     swap
     box_put
-    // smart_contracts/escrow/contract.algo.ts:176
+    // smart_contracts/escrow/contract.algo.ts:177
     // const mbrAtEnd = Global.currentApplicationAddress.minBalance
     global CurrentApplicationAddress
     acct_params_get AcctMinBalance
@@ -772,11 +778,11 @@ getMBRDepositAmount:
     // smart_contracts/escrow/contract.algo.ts:35
     // public escrows = BoxMap<arc4.StaticBytes<32>, EscrowInstance>({ keyPrefix: 'e' })
     bytec 5 // 0x650000000000000000000000000000000000000000000000000000000000000000
-    // smart_contracts/escrow/contract.algo.ts:177
+    // smart_contracts/escrow/contract.algo.ts:178
     // this.escrows(bytes).delete()
     box_del
     pop
-    // smart_contracts/escrow/contract.algo.ts:178
+    // smart_contracts/escrow/contract.algo.ts:179
     // return mbrAtEnd - mbrAtStart
     swap
     -
@@ -785,7 +791,7 @@ getMBRDepositAmount:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.latestTimestamp() -> uint64:
 latestTimestamp:
-    // smart_contracts/escrow/contract.algo.ts:187
+    // smart_contracts/escrow/contract.algo.ts:188
     // return Global.latestTimestamp
     global LatestTimestamp
     retsub
@@ -793,7 +799,7 @@ latestTimestamp:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.withdraw(secretHash: bytes, secret: bytes) -> void:
 withdraw:
-    // smart_contracts/escrow/contract.algo.ts:196-197
+    // smart_contracts/escrow/contract.algo.ts:197-198
     // @arc4.abimethod()
     // public withdraw(secretHash: arc4.StaticBytes<32>, secret: arc4.DynamicBytes) {
     proto 2 0
@@ -804,20 +810,20 @@ withdraw:
     bytec_3 // "e"
     frame_dig -2
     concat
-    // smart_contracts/escrow/contract.algo.ts:198
+    // smart_contracts/escrow/contract.algo.ts:199
     // assert(this.escrows(secretHash).exists, 'The escrow does not exists')
     dup
     box_len
     bury 1
     assert // The escrow does not exists
-    // smart_contracts/escrow/contract.algo.ts:199
+    // smart_contracts/escrow/contract.algo.ts:200
     // assert(op.keccak256(secret.bytes) === secretHash.bytes, 'The password is not correct')
     frame_dig -1
     keccak256
     frame_dig -2
     ==
     assert // The password is not correct
-    // smart_contracts/escrow/contract.algo.ts:201
+    // smart_contracts/escrow/contract.algo.ts:202
     // const escrow = this.escrows(secretHash).value.copy()
     dup
     box_get
@@ -826,52 +832,52 @@ withdraw:
     cover 2
     cover 3
     assert // Box must have value
-    // smart_contracts/escrow/contract.algo.ts:203
+    // smart_contracts/escrow/contract.algo.ts:204
     // Global.latestTimestamp < escrow.rescueTime.native,
     global LatestTimestamp
     dig 1
     pushint 8 // 8
     extract_uint64
     <
-    // smart_contracts/escrow/contract.algo.ts:202-205
+    // smart_contracts/escrow/contract.algo.ts:203-206
     // assert(
     //   Global.latestTimestamp < escrow.rescueTime.native,
     //   'Escrow can be redeemed with password up to the rescue time',
     // )
     assert // Escrow can be redeemed with password up to the rescue time
-    // smart_contracts/escrow/contract.algo.ts:207
+    // smart_contracts/escrow/contract.algo.ts:208
     // escrow.destinationSetter === new Address(),
     dup
     extract 72 32 // on error: Index access is out of bounds
     bytec_2 // addr AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ
     ==
-    // smart_contracts/escrow/contract.algo.ts:206-209
+    // smart_contracts/escrow/contract.algo.ts:207-210
     // assert(
     //   escrow.destinationSetter === new Address(),
     //   'The funds cannot be withdrawn until destination setter sets the real taker',
     // )
     assert // The funds cannot be withdrawn until destination setter sets the real taker
-    // smart_contracts/escrow/contract.algo.ts:212
+    // smart_contracts/escrow/contract.algo.ts:213
     // this.escrows(secretHash).delete()
     swap
     box_del
     pop
-    // smart_contracts/escrow/contract.algo.ts:215
+    // smart_contracts/escrow/contract.algo.ts:216
     // let sendTo = escrow.taker
     extract 104 32 // on error: Index access is out of bounds
     dup
-    // smart_contracts/escrow/contract.algo.ts:216
+    // smart_contracts/escrow/contract.algo.ts:217
     // if (sendTo === new Address()) {
     bytec_2 // addr AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ
     ==
     bz withdraw_after_if_else@2
-    // smart_contracts/escrow/contract.algo.ts:217
+    // smart_contracts/escrow/contract.algo.ts:218
     // sendTo = new Address(Txn.sender)
     txn Sender
     frame_bury 3
 
 withdraw_after_if_else@2:
-    // smart_contracts/escrow/contract.algo.ts:219
+    // smart_contracts/escrow/contract.algo.ts:220
     // if (escrow.tokenId.native === 0) {
     frame_dig 2
     pushint 16 // 16
@@ -879,7 +885,7 @@ withdraw_after_if_else@2:
     dup
     frame_bury 1
     bnz withdraw_else_body@7
-    // smart_contracts/escrow/contract.algo.ts:220
+    // smart_contracts/escrow/contract.algo.ts:221
     // if (sendTo === escrow.creator) {
     frame_dig 2
     extract 40 32 // on error: Index access is out of bounds
@@ -888,7 +894,7 @@ withdraw_after_if_else@2:
     frame_dig 3
     ==
     bz withdraw_else_body@5
-    // smart_contracts/escrow/contract.algo.ts:221
+    // smart_contracts/escrow/contract.algo.ts:222
     // this._send(sendTo, escrow.tokenId.native, escrow.amount.native + escrow.mbrAmount.native)
     frame_dig 2
     dup
@@ -905,7 +911,7 @@ withdraw_after_if_else@2:
     retsub
 
 withdraw_else_body@5:
-    // smart_contracts/escrow/contract.algo.ts:223
+    // smart_contracts/escrow/contract.algo.ts:224
     // this._send(sendTo, escrow.tokenId.native, escrow.amount.native)
     frame_dig 2
     dup
@@ -915,7 +921,7 @@ withdraw_else_body@5:
     frame_dig 1
     uncover 2
     callsub _send
-    // smart_contracts/escrow/contract.algo.ts:224
+    // smart_contracts/escrow/contract.algo.ts:225
     // this._send(escrow.creator, 0, escrow.mbrAmount.native)
     intc_3 // 32
     extract_uint64
@@ -926,7 +932,7 @@ withdraw_else_body@5:
     retsub
 
 withdraw_else_body@7:
-    // smart_contracts/escrow/contract.algo.ts:228
+    // smart_contracts/escrow/contract.algo.ts:229
     // this._send(sendTo, escrow.tokenId.native, escrow.amount.native)
     frame_dig 2
     dup
@@ -936,7 +942,7 @@ withdraw_else_body@7:
     frame_dig 1
     uncover 2
     callsub _send
-    // smart_contracts/escrow/contract.algo.ts:229
+    // smart_contracts/escrow/contract.algo.ts:230
     // this._send(escrow.creator, 0, escrow.mbrAmount.native)
     dup
     extract 40 32 // on error: Index access is out of bounds
@@ -951,7 +957,7 @@ withdraw_else_body@7:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.cancel(secretHash: bytes) -> void:
 cancel:
-    // smart_contracts/escrow/contract.algo.ts:237-238
+    // smart_contracts/escrow/contract.algo.ts:238-239
     // @arc4.abimethod()
     // public cancel(secretHash: arc4.StaticBytes<32>) {
     proto 1 0
@@ -960,13 +966,13 @@ cancel:
     bytec_3 // "e"
     frame_dig -1
     concat
-    // smart_contracts/escrow/contract.algo.ts:239
+    // smart_contracts/escrow/contract.algo.ts:240
     // assert(this.escrows(secretHash).exists, 'The escrow does not exists')
     dup
     box_len
     bury 1
     assert // The escrow does not exists
-    // smart_contracts/escrow/contract.algo.ts:240
+    // smart_contracts/escrow/contract.algo.ts:241
     // const escrow = this.escrows(secretHash).value.copy()
     dup
     box_get
@@ -975,7 +981,7 @@ cancel:
     cover 2
     cover 3
     assert // Box must have value
-    // smart_contracts/escrow/contract.algo.ts:241
+    // smart_contracts/escrow/contract.algo.ts:242
     // assert(escrow.rescueTime.native < Global.latestTimestamp, 'The escrow cannot be canceled yet')
     dup
     pushint 8 // 8
@@ -983,18 +989,18 @@ cancel:
     global LatestTimestamp
     <
     assert // The escrow cannot be canceled yet
-    // smart_contracts/escrow/contract.algo.ts:244
+    // smart_contracts/escrow/contract.algo.ts:245
     // this.escrows(secretHash).delete()
     swap
     box_del
     pop
-    // smart_contracts/escrow/contract.algo.ts:247
+    // smart_contracts/escrow/contract.algo.ts:248
     // if (escrow.tokenId.native === 0) {
     pushint 16 // 16
     extract_uint64
     dup
     bnz cancel_else_body@2
-    // smart_contracts/escrow/contract.algo.ts:248
+    // smart_contracts/escrow/contract.algo.ts:249
     // this._send(escrow.creator, escrow.tokenId.native, escrow.amount.native + escrow.mbrAmount.native)
     frame_dig 0
     dup
@@ -1012,7 +1018,7 @@ cancel:
     retsub
 
 cancel_else_body@2:
-    // smart_contracts/escrow/contract.algo.ts:251
+    // smart_contracts/escrow/contract.algo.ts:252
     // this._send(escrow.creator, escrow.tokenId.native, escrow.amount.native)
     frame_dig 0
     dup
@@ -1024,7 +1030,7 @@ cancel_else_body@2:
     uncover 4
     uncover 2
     callsub _send
-    // smart_contracts/escrow/contract.algo.ts:252
+    // smart_contracts/escrow/contract.algo.ts:253
     // this._send(escrow.creator, 0, escrow.mbrAmount.native)
     swap
     intc_3 // 32
@@ -1037,7 +1043,7 @@ cancel_else_body@2:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.setTaker(secretHash: bytes, taker: bytes) -> void:
 setTaker:
-    // smart_contracts/escrow/contract.algo.ts:262-263
+    // smart_contracts/escrow/contract.algo.ts:263-264
     // @arc4.abimethod()
     // public setTaker(secretHash: arc4.StaticBytes<32>, taker: Address) {
     proto 2 0
@@ -1046,38 +1052,38 @@ setTaker:
     bytec_3 // "e"
     frame_dig -2
     concat
-    // smart_contracts/escrow/contract.algo.ts:264
+    // smart_contracts/escrow/contract.algo.ts:265
     // assert(this.escrows(secretHash).exists, 'The escrow does not exists')
     dup
     box_len
     bury 1
     assert // The escrow does not exists
-    // smart_contracts/escrow/contract.algo.ts:265
+    // smart_contracts/escrow/contract.algo.ts:266
     // const escrow = this.escrows(secretHash).value.copy()
     dup
     box_get
     assert // Box must have value
-    // smart_contracts/escrow/contract.algo.ts:267
+    // smart_contracts/escrow/contract.algo.ts:268
     // escrow.rescueTime.native >= Global.latestTimestamp,
     dup
     pushint 8 // 8
     extract_uint64
     global LatestTimestamp
     >=
-    // smart_contracts/escrow/contract.algo.ts:266-269
+    // smart_contracts/escrow/contract.algo.ts:267-270
     // assert(
     //   escrow.rescueTime.native >= Global.latestTimestamp,
     //   'The escrow cannot be modified after the rescue time has been reached',
     // )
     assert // The escrow cannot be modified after the rescue time has been reached
-    // smart_contracts/escrow/contract.algo.ts:270
+    // smart_contracts/escrow/contract.algo.ts:271
     // assert(new Address(Txn.sender) === escrow.destinationSetter, 'Destination setter is not valid')
     txn Sender
     swap
     extract 72 32 // on error: Index access is out of bounds
     ==
     assert // Destination setter is not valid
-    // smart_contracts/escrow/contract.algo.ts:272
+    // smart_contracts/escrow/contract.algo.ts:273
     // this.escrows(secretHash).value.taker = taker
     dup
     box_get
@@ -1087,7 +1093,7 @@ setTaker:
     dig 1
     swap
     box_put
-    // smart_contracts/escrow/contract.algo.ts:273
+    // smart_contracts/escrow/contract.algo.ts:274
     // this.escrows(secretHash).value.destinationSetter = new Address() // only one attempt to set the taker is allowed
     dup
     box_get
@@ -1100,36 +1106,36 @@ setTaker:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.optInToToken(txnDeposit: uint64, tokenId: bytes) -> void:
 optInToToken:
-    // smart_contracts/escrow/contract.algo.ts:281-282
+    // smart_contracts/escrow/contract.algo.ts:282-283
     // @arc4.abimethod()
     // public optInToToken(txnDeposit: gtxn.PaymentTxn, tokenId: UintN64) {
     proto 2 0
-    // smart_contracts/escrow/contract.algo.ts:284
+    // smart_contracts/escrow/contract.algo.ts:285
     // txnDeposit.receiver === Global.currentApplicationAddress,
     frame_dig -2
     gtxns Receiver
     global CurrentApplicationAddress
     ==
-    // smart_contracts/escrow/contract.algo.ts:283-286
+    // smart_contracts/escrow/contract.algo.ts:284-287
     // assert(
     //   txnDeposit.receiver === Global.currentApplicationAddress,
     //   'Receiver of the optin fee must be the current smart contract',
     // )
     assert // Receiver of the optin fee must be the current smart contract
-    // smart_contracts/escrow/contract.algo.ts:287
+    // smart_contracts/escrow/contract.algo.ts:288
     // if (tokenId.native === 0) {
     frame_dig -1
     btoi
     dup
     bz optInToToken_after_if_else@4
-    // smart_contracts/escrow/contract.algo.ts:294
+    // smart_contracts/escrow/contract.algo.ts:295
     // assert(txnDeposit.amount === 109_300, 'Opt in fee to cover MBR for asset and box to track all deposits')
     frame_dig -2
     gtxns Amount
     pushint 109300 // 109300
     ==
     assert // Opt in fee to cover MBR for asset and box to track all deposits
-    // smart_contracts/escrow/contract.algo.ts:295
+    // smart_contracts/escrow/contract.algo.ts:296
     // assert(Global.currentApplicationAddress.isOptedIn(Asset(tokenId.native)) === false, 'Asset is already opted in')
     global CurrentApplicationAddress
     frame_dig 0
@@ -1139,7 +1145,7 @@ optInToToken:
     bury 1
     !
     assert // Asset is already opted in
-    // smart_contracts/escrow/contract.algo.ts:297-304
+    // smart_contracts/escrow/contract.algo.ts:298-305
     // itxn
     //   .assetTransfer({
     //     xferAsset: tokenId.native,
@@ -1149,16 +1155,16 @@ optInToToken:
     //   })
     //   .submit()
     itxn_begin
-    // smart_contracts/escrow/contract.algo.ts:301
+    // smart_contracts/escrow/contract.algo.ts:302
     // assetReceiver: Global.currentApplicationAddress,
     global CurrentApplicationAddress
     itxn_field AssetReceiver
-    // smart_contracts/escrow/contract.algo.ts:300
+    // smart_contracts/escrow/contract.algo.ts:301
     // assetAmount: 0,
     intc_1 // 0
     itxn_field AssetAmount
     itxn_field XferAsset
-    // smart_contracts/escrow/contract.algo.ts:297-303
+    // smart_contracts/escrow/contract.algo.ts:298-304
     // itxn
     //   .assetTransfer({
     //     xferAsset: tokenId.native,
@@ -1168,11 +1174,11 @@ optInToToken:
     //   })
     pushint 4 // 4
     itxn_field TypeEnum
-    // smart_contracts/escrow/contract.algo.ts:302
+    // smart_contracts/escrow/contract.algo.ts:303
     // fee: 0,
     intc_1 // 0
     itxn_field Fee
-    // smart_contracts/escrow/contract.algo.ts:297-304
+    // smart_contracts/escrow/contract.algo.ts:298-305
     // itxn
     //   .assetTransfer({
     //     xferAsset: tokenId.native,
@@ -1189,14 +1195,14 @@ optInToToken_after_if_else@4:
     bytec_0 // "d"
     frame_dig -1
     concat
-    // smart_contracts/escrow/contract.algo.ts:306
+    // smart_contracts/escrow/contract.algo.ts:307
     // assert(!this.allDeposits(tokenId).exists, 'Box with all deposits must not exists when opting in')
     dup
     box_len
     bury 1
     !
     assert // Box with all deposits must not exists when opting in
-    // smart_contracts/escrow/contract.algo.ts:307
+    // smart_contracts/escrow/contract.algo.ts:308
     // this.allDeposits(tokenId).value = new UintN64(0)
     pushbytes 0x0000000000000000
     box_put
@@ -1205,29 +1211,29 @@ optInToToken_after_if_else@4:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.adminWithdrawable(assetId: uint64) -> uint64:
 adminWithdrawable:
-    // smart_contracts/escrow/contract.algo.ts:316-317
+    // smart_contracts/escrow/contract.algo.ts:317-318
     // @arc4.abimethod({ readonly: true })
     // public adminWithdrawable(assetId: uint64): uint64 {
     proto 1 1
-    // smart_contracts/escrow/contract.algo.ts:318
+    // smart_contracts/escrow/contract.algo.ts:319
     // const assetIdN = new UintN64(assetId)
     frame_dig -1
     itob
-    // smart_contracts/escrow/contract.algo.ts:319
+    // smart_contracts/escrow/contract.algo.ts:320
     // if (assetId === 0) {
     frame_dig -1
     bnz adminWithdrawable_else_body@2
-    // smart_contracts/escrow/contract.algo.ts:321
+    // smart_contracts/escrow/contract.algo.ts:322
     // Global.currentApplicationAddress.balance -
     global CurrentApplicationAddress
     acct_params_get AcctBalance
     assert // account funded
-    // smart_contracts/escrow/contract.algo.ts:322
+    // smart_contracts/escrow/contract.algo.ts:323
     // Global.currentApplicationAddress.minBalance -
     global CurrentApplicationAddress
     acct_params_get AcctMinBalance
     assert // account funded
-    // smart_contracts/escrow/contract.algo.ts:321-322
+    // smart_contracts/escrow/contract.algo.ts:322-323
     // Global.currentApplicationAddress.balance -
     // Global.currentApplicationAddress.minBalance -
     -
@@ -1236,17 +1242,17 @@ adminWithdrawable:
     bytec_0 // "d"
     uncover 2
     concat
-    // smart_contracts/escrow/contract.algo.ts:323
+    // smart_contracts/escrow/contract.algo.ts:324
     // this.allDeposits(assetIdN).value.native
     box_get
     assert // Box must have value
     btoi
-    // smart_contracts/escrow/contract.algo.ts:321-323
+    // smart_contracts/escrow/contract.algo.ts:322-324
     // Global.currentApplicationAddress.balance -
     // Global.currentApplicationAddress.minBalance -
     // this.allDeposits(assetIdN).value.native
     -
-    // smart_contracts/escrow/contract.algo.ts:320-324
+    // smart_contracts/escrow/contract.algo.ts:321-325
     // return (
     //   Global.currentApplicationAddress.balance -
     //   Global.currentApplicationAddress.minBalance -
@@ -1255,7 +1261,7 @@ adminWithdrawable:
     retsub
 
 adminWithdrawable_else_body@2:
-    // smart_contracts/escrow/contract.algo.ts:326
+    // smart_contracts/escrow/contract.algo.ts:327
     // return Asset(assetId).balance(Global.currentApplicationAddress) - this.allDeposits(assetIdN).value.native
     global CurrentApplicationAddress
     frame_dig -1
@@ -1266,7 +1272,7 @@ adminWithdrawable_else_body@2:
     bytec_0 // "d"
     uncover 2
     concat
-    // smart_contracts/escrow/contract.algo.ts:326
+    // smart_contracts/escrow/contract.algo.ts:327
     // return Asset(assetId).balance(Global.currentApplicationAddress) - this.allDeposits(assetIdN).value.native
     box_get
     assert // Box must have value
@@ -1277,35 +1283,35 @@ adminWithdrawable_else_body@2:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.adminWithdraw(assetId: uint64) -> uint64:
 adminWithdraw:
-    // smart_contracts/escrow/contract.algo.ts:337-338
+    // smart_contracts/escrow/contract.algo.ts:338-339
     // @arc4.abimethod({ readonly: true })
     // public adminWithdraw(assetId: uint64): uint64 {
     proto 1 1
-    // smart_contracts/escrow/contract.algo.ts:339
+    // smart_contracts/escrow/contract.algo.ts:340
     // assert(Txn.sender === Global.creatorAddress, 'Only deployer of this app can withdraw')
     txn Sender
     global CreatorAddress
     ==
     assert // Only deployer of this app can withdraw
-    // smart_contracts/escrow/contract.algo.ts:340
+    // smart_contracts/escrow/contract.algo.ts:341
     // const assetIdN = new UintN64(assetId)
     frame_dig -1
     itob
-    // smart_contracts/escrow/contract.algo.ts:341
+    // smart_contracts/escrow/contract.algo.ts:342
     // if (assetId === 0) {
     frame_dig -1
     bnz adminWithdraw_else_body@2
-    // smart_contracts/escrow/contract.algo.ts:343
+    // smart_contracts/escrow/contract.algo.ts:344
     // Global.currentApplicationAddress.balance -
     global CurrentApplicationAddress
     acct_params_get AcctBalance
     assert // account funded
-    // smart_contracts/escrow/contract.algo.ts:344
+    // smart_contracts/escrow/contract.algo.ts:345
     // Global.currentApplicationAddress.minBalance -
     global CurrentApplicationAddress
     acct_params_get AcctMinBalance
     assert // account funded
-    // smart_contracts/escrow/contract.algo.ts:343-344
+    // smart_contracts/escrow/contract.algo.ts:344-345
     // Global.currentApplicationAddress.balance -
     // Global.currentApplicationAddress.minBalance -
     -
@@ -1314,17 +1320,17 @@ adminWithdraw:
     bytec_0 // "d"
     uncover 2
     concat
-    // smart_contracts/escrow/contract.algo.ts:345
+    // smart_contracts/escrow/contract.algo.ts:346
     // this.allDeposits(assetIdN).value.native
     box_get
     assert // Box must have value
     btoi
-    // smart_contracts/escrow/contract.algo.ts:343-345
+    // smart_contracts/escrow/contract.algo.ts:344-346
     // Global.currentApplicationAddress.balance -
     // Global.currentApplicationAddress.minBalance -
     // this.allDeposits(assetIdN).value.native
     -
-    // smart_contracts/escrow/contract.algo.ts:342-346
+    // smart_contracts/escrow/contract.algo.ts:343-347
     // return (
     //   Global.currentApplicationAddress.balance -
     //   Global.currentApplicationAddress.minBalance -
@@ -1333,7 +1339,7 @@ adminWithdraw:
     retsub
 
 adminWithdraw_else_body@2:
-    // smart_contracts/escrow/contract.algo.ts:348
+    // smart_contracts/escrow/contract.algo.ts:349
     // return Asset(assetId).balance(Global.currentApplicationAddress) - this.allDeposits(assetIdN).value.native
     global CurrentApplicationAddress
     frame_dig -1
@@ -1344,7 +1350,7 @@ adminWithdraw_else_body@2:
     bytec_0 // "d"
     uncover 2
     concat
-    // smart_contracts/escrow/contract.algo.ts:348
+    // smart_contracts/escrow/contract.algo.ts:349
     // return Asset(assetId).balance(Global.currentApplicationAddress) - this.allDeposits(assetIdN).value.native
     box_get
     assert // Box must have value
@@ -1355,7 +1361,7 @@ adminWithdraw_else_body@2:
 
 // smart_contracts/escrow/contract.algo.ts::Escrow.sendOnlineKeyRegistration(voteKey: bytes, selectionKey: bytes, stateProofKey: bytes, voteFirst: uint64, voteLast: uint64, voteKeyDilution: uint64, fee: uint64) -> bytes:
 sendOnlineKeyRegistration:
-    // smart_contracts/escrow/contract.algo.ts:355-364
+    // smart_contracts/escrow/contract.algo.ts:356-365
     // @arc4.abimethod()
     // public sendOnlineKeyRegistration(
     //   voteKey: bytes,
@@ -1367,13 +1373,13 @@ sendOnlineKeyRegistration:
     //   fee: uint64,
     // ): bytes {
     proto 7 1
-    // smart_contracts/escrow/contract.algo.ts:365
+    // smart_contracts/escrow/contract.algo.ts:366
     // assert(Global.creatorAddress === Txn.sender, 'Only creator can use this method')
     global CreatorAddress
     txn Sender
     ==
     assert // Only creator can use this method
-    // smart_contracts/escrow/contract.algo.ts:366-376
+    // smart_contracts/escrow/contract.algo.ts:367-377
     // const itxnResult = itxn
     //   .keyRegistration({
     //     selectionKey: selectionKey,
@@ -1398,7 +1404,7 @@ sendOnlineKeyRegistration:
     itxn_field StateProofPK
     frame_dig -6
     itxn_field SelectionPK
-    // smart_contracts/escrow/contract.algo.ts:366-375
+    // smart_contracts/escrow/contract.algo.ts:367-376
     // const itxnResult = itxn
     //   .keyRegistration({
     //     selectionKey: selectionKey,
@@ -1413,7 +1419,7 @@ sendOnlineKeyRegistration:
     itxn_field TypeEnum
     frame_dig -1
     itxn_field Fee
-    // smart_contracts/escrow/contract.algo.ts:366-376
+    // smart_contracts/escrow/contract.algo.ts:367-377
     // const itxnResult = itxn
     //   .keyRegistration({
     //     selectionKey: selectionKey,
@@ -1427,20 +1433,20 @@ sendOnlineKeyRegistration:
     //   .submit()
     itxn_submit
     itxn TxID
-    // smart_contracts/escrow/contract.algo.ts:377
+    // smart_contracts/escrow/contract.algo.ts:378
     // return itxnResult.txnId
     retsub
 
 
 // smart_contracts/escrow/contract.algo.ts::Escrow._send(receiver: bytes, assetId: uint64, amount: uint64) -> void:
 _send:
-    // smart_contracts/escrow/contract.algo.ts:382
+    // smart_contracts/escrow/contract.algo.ts:383
     // private _send(receiver: Address, assetId: uint64, amount: uint64): void {
     proto 3 0
-    // smart_contracts/escrow/contract.algo.ts:383
+    // smart_contracts/escrow/contract.algo.ts:384
     // let prevDeposits: uint64 = 0
     intc_1 // 0
-    // smart_contracts/escrow/contract.algo.ts:384
+    // smart_contracts/escrow/contract.algo.ts:385
     // const tokenIdN = new UintN64(assetId)
     frame_dig -2
     itob
@@ -1450,12 +1456,12 @@ _send:
     swap
     concat
     dup
-    // smart_contracts/escrow/contract.algo.ts:386
+    // smart_contracts/escrow/contract.algo.ts:387
     // if (this.allDeposits(tokenIdN).exists) {
     box_len
     bury 1
     bz _send_after_if_else@2
-    // smart_contracts/escrow/contract.algo.ts:387
+    // smart_contracts/escrow/contract.algo.ts:388
     // prevDeposits = this.allDeposits(tokenIdN).value.native
     frame_dig 1
     box_get
@@ -1464,7 +1470,7 @@ _send:
     frame_bury 0
 
 _send_after_if_else@2:
-    // smart_contracts/escrow/contract.algo.ts:389
+    // smart_contracts/escrow/contract.algo.ts:390
     // this.allDeposits(tokenIdN).value = new UintN64(prevDeposits - amount)
     frame_dig 0
     frame_dig -1
@@ -1473,11 +1479,11 @@ _send_after_if_else@2:
     frame_dig 1
     swap
     box_put
-    // smart_contracts/escrow/contract.algo.ts:391
+    // smart_contracts/escrow/contract.algo.ts:392
     // if (assetId === 0) {
     frame_dig -2
     bnz _send_else_body@5
-    // smart_contracts/escrow/contract.algo.ts:392-398
+    // smart_contracts/escrow/contract.algo.ts:393-399
     // itxn
     //   .payment({
     //     amount: amount,
@@ -1490,7 +1496,7 @@ _send_after_if_else@2:
     itxn_field Receiver
     frame_dig -1
     itxn_field Amount
-    // smart_contracts/escrow/contract.algo.ts:392-397
+    // smart_contracts/escrow/contract.algo.ts:393-398
     // itxn
     //   .payment({
     //     amount: amount,
@@ -1499,11 +1505,11 @@ _send_after_if_else@2:
     //   })
     intc_0 // 1
     itxn_field TypeEnum
-    // smart_contracts/escrow/contract.algo.ts:395
+    // smart_contracts/escrow/contract.algo.ts:396
     // fee: 0,
     intc_1 // 0
     itxn_field Fee
-    // smart_contracts/escrow/contract.algo.ts:392-398
+    // smart_contracts/escrow/contract.algo.ts:393-399
     // itxn
     //   .payment({
     //     amount: amount,
@@ -1515,7 +1521,7 @@ _send_after_if_else@2:
     retsub
 
 _send_else_body@5:
-    // smart_contracts/escrow/contract.algo.ts:400-407
+    // smart_contracts/escrow/contract.algo.ts:401-408
     // itxn
     //   .assetTransfer({
     //     assetAmount: amount,
@@ -1531,7 +1537,7 @@ _send_else_body@5:
     itxn_field AssetReceiver
     frame_dig -1
     itxn_field AssetAmount
-    // smart_contracts/escrow/contract.algo.ts:400-406
+    // smart_contracts/escrow/contract.algo.ts:401-407
     // itxn
     //   .assetTransfer({
     //     assetAmount: amount,
@@ -1541,11 +1547,11 @@ _send_else_body@5:
     //   })
     pushint 4 // 4
     itxn_field TypeEnum
-    // smart_contracts/escrow/contract.algo.ts:403
+    // smart_contracts/escrow/contract.algo.ts:404
     // fee: 0,
     intc_1 // 0
     itxn_field Fee
-    // smart_contracts/escrow/contract.algo.ts:400-407
+    // smart_contracts/escrow/contract.algo.ts:401-408
     // itxn
     //   .assetTransfer({
     //     assetAmount: amount,

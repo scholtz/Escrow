@@ -9,6 +9,9 @@
     },
     {
       "path": "projects/web-vue"
+    },
+    {
+      "path": "projects/relayer-demo"
     }
   ],
   "settings": {

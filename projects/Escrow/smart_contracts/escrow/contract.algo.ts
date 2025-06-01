@@ -144,6 +144,7 @@ export class Escrow extends Contract {
    */
   @arc4.abimethod({ readonly: true })
   public getEscrow(secretHash: arc4.StaticBytes<32>): EscrowInstance {
+    assert(this.escrows(secretHash).exists, 'Box must exist')
     return this.escrows(secretHash).value
   }
 
