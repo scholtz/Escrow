@@ -1,6 +1,6 @@
 {
   "name": "algorand-htlc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "This npm package allows communication with the HTLC (Hashed Time Locked Contract) on AVM chains - Algorand, VOI, Aramid, ..",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

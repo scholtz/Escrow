@@ -1,4 +1,4 @@
-export const getAppIdByChain = async (chain: 'testnet-v1.0' | 'voimain-v1.0' | 'mainnet-v1.0' | 'dockernet-v1') => {
+export const getAppIdByChain = (chain: 'testnet-v1.0' | 'voimain-v1.0' | 'mainnet-v1.0' | 'dockernet-v1') => {
   switch (chain) {
     case 'mainnet-v1.0':
       return 3029851365n
